@@ -7,20 +7,20 @@ import sys
 
 def main():
     # number of inputs
-    n = 50
+    n = 75
     # number of values to predict
     s = 500
     # learning rate
-    lr = 0.002
+    lr = 0.001
 
-    t = np.arange(0, 100, 0.1)
-    nn = LinearPredictor(t, f(t), n, s, lr, 0.1)
+    t = np.arange(0, 100+0.05, 0.05)
+    nn = LinearPredictor(t, f(t), n, s, lr)
     nn.linear_system_training()
     nn.online_prediction()
 
 
 class LinearPredictor:
-    def __init__(self, t, x, n, s, alpha, sr):
+    def __init__(self, t, x, n, s, alpha):
         """t is a vector with the time in which every element of x was sampled
            x is a vector with inputs
            n is the number of input to use
@@ -32,12 +32,12 @@ class LinearPredictor:
         self.t_old = self.t.copy()
         self.start_time = t[0]
         self.end_time = t[-1]
-        samples = 1 + (self.end_time - self.start_time) / sr
+        samples = x.size
 
         # in the last moment there are only n + s samples remaining
-        self.stop_training_time = self.start_time + (samples - n - s) * sr
+        self.stop_training = samples - n - s
 
-        if self.stop_training_time < sr:
+        if self.stop_training < 0:
             sys.exit("Insufficient amount of input signal samples")
 
         self.x = x[:, np.newaxis]
@@ -50,9 +50,6 @@ class LinearPredictor:
         # training rate
         self.alpha = alpha
 
-        # sampling rate
-        self.sr = sr
-
         # prediction
         self.x2 = None
 
@@ -60,9 +57,9 @@ class LinearPredictor:
         self.fig = plt.figure()
         plt.axes()
         mng = plt.get_current_fig_manager()
-        # mng.window.showMaximized()
+        mng.window.showMaximized()
 
-    def update_training_set(self, t, x, n, s, alpha, sr):
+    def update_training_set(self, t, x, n, s, alpha):
         """t is a vector with the time in which every element of x was sampled
            x is a vector with inputs
            n is the number of input to use
@@ -71,16 +68,13 @@ class LinearPredictor:
            sr is the sampling rate of the input signal
         """
         self.t = t
-        self.x = x[:, np.newaxis]
+        self.x = x
         self.y = self.x[n:n+s, 0:1]
         self.n = n
         self.s = s
 
         # training rate
         self.alpha = alpha
-
-        # sampling rate
-        self.sr = sr
 
         # prediction
         self.x2 = None
@@ -106,15 +100,14 @@ class LinearPredictor:
     def linear_system_training(self):
         print('starting linear system training')
 
-        for offset in np.arange(0, self.stop_training_time + self.sr, self.sr):
-            t = np.arange(self.start_time+offset, self.end_time+offset, self.sr)
+        for offset in np.arange(0, self.stop_training + 1):
+            t = self.t_old[offset:offset+self.n+self.s]
+            x = self.x_old[offset:offset+self.n+self.s]
 
-            if offset != 0:
-                self.update_training_set(t, f(t), self.n, self.s, self.alpha, self.sr)
+            self.update_training_set(t, x, self.n, self.s, self.alpha)
 
             self.one_step_training()
-            data_x = f(t)[0:self.n]
-            data_x = data_x[:, np.newaxis]
+            data_x = x[0:self.n]
             self.predict(data_x)
 
             if offset == 0:
@@ -122,6 +115,9 @@ class LinearPredictor:
                 plt.show()
 
             self.plot(self.fig)
+
+        # check if all data was used
+        # print(self.t[-1] == self.t_old[-1])
 
     def predict(self, data_x):
         input_x = np.ones((self.s, self.n+1))
@@ -146,11 +142,13 @@ class LinearPredictor:
     def online_prediction(self):
         print('starting linear system online predictions')
 
-        for offset in np.arange(0, self.stop_training_time, self.sr):
-            t = np.arange(self.start_time+offset, self.end_time+offset, self.sr)
-            self.update_training_set(t, f(t), self.n, self.s, self.alpha, self.sr)
-            data_x = f(t)[0:self.n]
-            data_x = data_x[:, np.newaxis]
+        for offset in np.arange(0, self.stop_training + 1):
+            t = self.t_old[offset:offset+self.n+self.s]
+            x = self.x_old[offset:offset+self.n+self.s]
+
+            self.update_training_set(t, x, self.n, self.s, self.alpha)
+
+            data_x = x[0:self.n]
             self.predict(data_x)
             self.plot(self.fig)
 
