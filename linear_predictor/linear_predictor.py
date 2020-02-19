@@ -14,13 +14,14 @@ def main():
     lr = 0.001
 
     t = np.arange(0, 100+0.05, 0.05)
-    nn = LinearPredictor(t, f(t), n, s, lr)
+    nn = LinearPredictor(t, f(t), n, s, lr, True)
+
     nn.linear_system_training()
     nn.online_prediction()
 
 
 class LinearPredictor:
-    def __init__(self, t, x, n, s, alpha):
+    def __init__(self, t, x, n, s, alpha, graphs_on):
         """t is a vector with the time in which every element of x was sampled
            x is a vector with inputs
            n is the number of input to use
@@ -54,10 +55,13 @@ class LinearPredictor:
         self.x2 = None
 
         # graphics
-        self.fig = plt.figure()
-        plt.axes()
-        mng = plt.get_current_fig_manager()
-        mng.window.showMaximized()
+        self.graphs_on = graphs_on
+
+        if graphs_on:
+            self.fig = plt.figure()
+            plt.axes()
+            mng = plt.get_current_fig_manager()
+            mng.window.showMaximized()
 
     def update_training_set(self, t, x, n, s, alpha):
         """t is a vector with the time in which every element of x was sampled
@@ -110,11 +114,12 @@ class LinearPredictor:
             data_x = x[0:self.n]
             self.predict(data_x)
 
-            if offset == 0:
-                plt.ion()
-                plt.show()
+            if self.graphs_on:
+                if offset == 0:
+                    plt.ion()
+                    plt.show()
 
-            self.plot(self.fig)
+                self.plot()
 
         # check if all data was used
         # print(self.t[-1] == self.t_old[-1])
@@ -150,15 +155,17 @@ class LinearPredictor:
 
             data_x = x[0:self.n]
             self.predict(data_x)
-            self.plot(self.fig)
 
-    def plot(self, fig):
-        a = fig.axes[0]
+            if self.graphs_on:
+                self.plot()
+
+    def plot(self):
+        a = self.fig.axes[0]
         a.plot(self.t_old, self.x_old, 'm')
         a.plot(self.t[0:self.n], self.x[0:self.n], '.b')
         a.plot(self.t[self.n:self.n+self.s], self.x2[self.n:], '.r')
         plt.ylim(-2, 2)
-        fig.canvas.draw()
+        self.fig.canvas.draw()
         plt.pause(0.0001)
         a.clear()
 
